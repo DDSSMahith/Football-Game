@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Football Soccer Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+            overflow: hidden;
+        }
+
+        .game-container {
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            background: #fff;
+        }
+
+        canvas {
+            display: block;
+            background: #4CAF50;
+        }
+
+        .game-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .score-display {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .score-item {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 15px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .score-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .score-label {
+            font-size: 12px;
+            opacity: 0.8;
+            text-transform: uppercase;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .control-instructions {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .game-buttons {
+            display: flex;
+            gap: 10px;
+            pointer-events: all;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .pause-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .pause-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .pause-title {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .pause-subtitle {
+            font-size: 18px;
+            opacity: 0.8;
+            margin-bottom: 30px;
+        }
+
+        .goal-effect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            z-index: 50;
+            animation: goalAnimation 2s ease-out forwards;
+            pointer-events: none;
+        }
+
+        @keyframes goalAnimation {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.5);
+            }
+            20% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .game-ui {
+                flex-direction: column;
+                gap: 10px;
+                padding: 15px;
+            }
+
+            .controls {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .control-instructions {
+                font-size: 12px;
+                text-align: center;
+            }
+
+            .pause-title {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="1000" height="600"></canvas>
+        
+        <div class="game-ui">
+            <div class="score-display">
+                <div class="score-item">
+                    <div class="score-value" id="player1Score">0</div>
+                    <div class="score-label">Player 1 (WASD)</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value" id="player2Score">0</div>
+                    <div class="score-label">Player 2 (Arrows)</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value" id="timeDisplay">00:00</div>
+                    <div class="score-label">Time</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-instructions">
+                <strong>Controls:</strong><br>
+                Player 1: WASD keys to move<br>
+                Player 2: Arrow keys to move<br>
+                Get close to ball to kick it into opponent's goal!
+            </div>
+            <div class="game-buttons">
+                <button id="pauseBtn">Pause</button>
+                <button id="resetBtn">Reset</button>
+            </div>
+        </div>
+
+        <div class="pause-overlay" id="pauseOverlay">
+            <div class="pause-title">PAUSED</div>
+            <div class="pause-subtitle">Press SPACE or click Pause to resume</div>
+        </div>
+    </div>
+
+    <script>
+        class FootballGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.width = this.canvas.width;
+                this.height = this.canvas.height;
+                
+                // Game state
+                this.gameState = 'playing'; // 'playing', 'paused'
+                this.player1Score = 0;
+                this.player2Score = 0;
+                this.startTime = Date.now();
+                this.lastTime = 0;
+                
+                // Game objects
+                this.player1 = {
+                    x: this.width / 2,
+                    y: this.height - 150,
+                    size: 15,
+                    speed: 200,
+                    color: '#FF6B6B',
+                    team: 1
+                };
+                
+                this.player2 = {
+                    x: this.width / 2,
+                    y: 150,
+                    size: 15,
+                    speed: 200,
+                    color: '#4ECDC4',
+                    team: 2
+                };
+                
+                this.ball = {
+                    x: this.width / 2,
+                    y: this.height / 2 + 50,
+                    vx: 0,
+                    vy: 0,
+                    size: 8,
+                    color: '#FFFFFF',
+                    friction: 0.98,
+                    bounce: 0.7
+                };
+                
+                // Field dimensions
+                this.fieldPadding = 50;
+                this.goalWidth = 120;
+                this.goalHeight = 20;
+                this.goalDepth = 30;
+                
+                // Input handling
+                this.keys = {};
+                this.setupEventListeners();
+                
+                // Audio context for sound effects
+                this.audioContext = null;
+                this.initAudio();
+                
+                // Start game loop
+                this.gameLoop();
+            }
+            
+            setupEventListeners() {
+                // Keyboard events
+                window.addEventListener('keydown', (e) => {
+                    this.keys[e.key.toLowerCase()] = true;
+                    if (e.key === ' ') {
+                        e.preventDefault();
+                        this.togglePause();
+                    }
+                });
+                
+                window.addEventListener('keyup', (e) => {
+                    this.keys[e.key.toLowerCase()] = false;
+                });
+                
+                // Button events
+                document.getElementById('pauseBtn').addEventListener('click', () => {
+                    this.togglePause();
+                });
+                
+                document.getElementById('resetBtn').addEventListener('click', () => {
+                    this.resetGame();
+                });
+                
+                // Prevent context menu on right click
+                this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+            }
+            
+            initAudio() {
+                try {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    console.log('Audio not supported');
+                }
+            }
+            
+            playSound(frequency, duration, type = 'sine') {
+                if (!this.audioContext) return;
+                
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                
+                oscillator.frequency.value = frequency;
+                oscillator.type = type;
+                
+                gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+                
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + duration);
+            }
+            
+            update(deltaTime) {
+                if (this.gameState !== 'playing') return;
+                
+                // Update player movement
+                this.updatePlayers(deltaTime);
+                
+                // Update ball physics
+                this.updateBall(deltaTime);
+                
+                // Check collisions
+                this.checkCollisions();
+                
+                // Check for goals
+                this.checkGoals();
+                
+                // Update UI
+                this.updateUI();
+            }
+            
+            updatePlayers(deltaTime) {
+                const speed = this.player1.speed * deltaTime;
+                
+                // Update Player 1 (WASD)
+                let newX1 = this.player1.x;
+                let newY1 = this.player1.y;
+                
+                // Handle input
+                if (this.keys['a']) {
+                    newX1 -= speed;
+                }
+                if (this.keys['d']) {
+                    newX1 += speed;
+                }
+                if (this.keys['w']) {
+                    newY1 -= speed;
+                }
+                if (this.keys['s']) {
+                    newY1 += speed;
+                }
+                
+                // Boundary checking
+                const padding = this.fieldPadding + this.player1.size;
+                newX1 = Math.max(padding, Math.min(this.width - padding, newX1));
+                newY1 = Math.max(padding, Math.min(this.height - padding, newY1));
+                
+                this.player1.x = newX1;
+                this.player1.y = newY1;
+                
+                // Update Player 2 (Arrow Keys)
+                let newX2 = this.player2.x;
+                let newY2 = this.player2.y;
+                
+                if (this.keys['arrowleft']) {
+                    newX2 -= speed;
+                }
+                if (this.keys['arrowright']) {
+                    newX2 += speed;
+                }
+                if (this.keys['arrowup']) {
+                    newY2 -= speed;
+                }
+                if (this.keys['arrowdown']) {
+                    newY2 += speed;
+                }
+                
+                // Boundary checking for player 2
+                newX2 = Math.max(padding, Math.min(this.width - padding, newX2));
+                newY2 = Math.max(padding, Math.min(this.height - padding, newY2));
+                
+                this.player2.x = newX2;
+                this.player2.y = newY2;
+            }
+            
+            updateBall(deltaTime) {
+                // Apply friction
+                this.ball.vx *= this.ball.friction;
+                this.ball.vy *= this.ball.friction;
+                
+                // Update position
+                this.ball.x += this.ball.vx * deltaTime;
+                this.ball.y += this.ball.vy * deltaTime;
+                
+                // Boundary collisions
+                const padding = this.fieldPadding + this.ball.size;
+                
+                // Side boundaries
+                if (this.ball.x <= padding || this.ball.x >= this.width - padding) {
+                    this.ball.vx *= -this.ball.bounce;
+                    this.ball.x = this.ball.x <= padding ? padding : this.width - padding;
+                    this.playSound(200, 0.1);
+                }
+                
+                // Top and bottom boundaries (except goals)
+                const leftGoalStart = this.width / 2 - this.goalWidth / 2;
+                const leftGoalEnd = this.width / 2 + this.goalWidth / 2;
+                
+                // Top boundary
+                if (this.ball.y <= padding) {
+                    if (this.ball.x < leftGoalStart || this.ball.x > leftGoalEnd) {
+                        this.ball.vy *= -this.ball.bounce;
+                        this.ball.y = padding;
+                        this.playSound(200, 0.1);
+                    }
+                }
+                
+                // Bottom boundary
+                if (this.ball.y >= this.height - padding) {
+                    if (this.ball.x < leftGoalStart || this.ball.x > leftGoalEnd) {
+                        this.ball.vy *= -this.ball.bounce;
+                        this.ball.y = this.height - padding;
+                        this.playSound(200, 0.1);
+                    }
+                }
+            }
+            
+            checkCollisions() {
+                // Player 1-ball collision
+                this.checkPlayerBallCollision(this.player1);
+                
+                // Player 2-ball collision
+                this.checkPlayerBallCollision(this.player2);
+            }
+            
+            checkPlayerBallCollision(player) {
+                const dx = player.x - this.ball.x;
+                const dy = player.y - this.ball.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const minDistance = player.size + this.ball.size + 5;
+                
+                if (distance < minDistance) {
+                    // Calculate kick direction and force
+                    const angle = Math.atan2(-dy, -dx);
+                    const force = 300;
+                    
+                    this.ball.vx = Math.cos(angle) * force;
+                    this.ball.vy = Math.sin(angle) * force;
+                    
+                    // Push ball away from player to prevent sticking
+                    const pushDistance = minDistance - distance;
+                    this.ball.x -= Math.cos(Math.atan2(dy, dx)) * pushDistance;
+                    this.ball.y -= Math.sin(Math.atan2(dy, dx)) * pushDistance;
+                    
+                    this.playSound(150, 0.2, 'square');
+                }
+            }
+            
+            checkGoals() {
+                const goalY1 = this.fieldPadding - this.goalDepth;
+                const goalY2 = this.height - this.fieldPadding + this.goalDepth;
+                const goalLeft = this.width / 2 - this.goalWidth / 2;
+                const goalRight = this.width / 2 + this.goalWidth / 2;
+                
+                // Top goal (Player 1 scores)
+                if (this.ball.y <= goalY1 && this.ball.x >= goalLeft && this.ball.x <= goalRight) {
+                    this.goal(1);
+                }
+                
+                // Bottom goal (Player 2 scores)
+                if (this.ball.y >= goalY2 && this.ball.x >= goalLeft && this.ball.x <= goalRight) {
+                    this.goal(2);
+                }
+            }
+            
+            goal(scoringPlayer) {
+                if (scoringPlayer === 1) {
+                    this.player1Score++;
+                } else {
+                    this.player2Score++;
+                }
+                
+                this.playSound(523, 0.5); // C note
+                setTimeout(() => this.playSound(659, 0.5), 200); // E note
+                setTimeout(() => this.playSound(784, 0.7), 400); // G note
+                
+                // Show goal effect
+                this.showGoalEffect(scoringPlayer);
+                
+                // Reset ball position
+                this.ball.x = this.width / 2;
+                this.ball.y = this.height / 2 + 50;
+                this.ball.vx = 0;
+                this.ball.vy = 0;
+            }
+            
+            showGoalEffect(scoringPlayer) {
+                const goalEffect = document.createElement('div');
+                goalEffect.className = 'goal-effect';
+                goalEffect.textContent = `PLAYER ${scoringPlayer} GOAL!`;
+                goalEffect.style.color = scoringPlayer === 1 ? '#FF6B6B' : '#4ECDC4';
+                document.querySelector('.game-container').appendChild(goalEffect);
+                
+                setTimeout(() => {
+                    goalEffect.remove();
+                }, 2000);
+            }
+            
+            render() {
+                // Clear canvas
+                this.ctx.fillStyle = '#4CAF50';
+                this.ctx.fillRect(0, 0, this.width, this.height);
+                
+                // Draw field
+                this.drawField();
+                
+                // Draw game objects
+                this.drawPlayers();
+                this.drawBall();
+            }
+            
+            drawField() {
+                this.ctx.strokeStyle = '#FFFFFF';
+                this.ctx.lineWidth = 3;
+                
+                // Field boundary
+                this.ctx.strokeRect(this.fieldPadding, this.fieldPadding, 
+                                  this.width - 2 * this.fieldPadding, 
+                                  this.height - 2 * this.fieldPadding);
+                
+                // Center circle
+                this.ctx.beginPath();
+                this.ctx.arc(this.width / 2, this.height / 2, 80, 0, Math.PI * 2);
+                this.ctx.stroke();
+                
+                // Center line
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.fieldPadding, this.height / 2);
+                this.ctx.lineTo(this.width - this.fieldPadding, this.height / 2);
+                this.ctx.stroke();
+                
+                // Center spot
+                this.ctx.fillStyle = '#FFFFFF';
+                this.ctx.beginPath();
+                this.ctx.arc(this.width / 2, this.height / 2, 3, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                // Goals
+                this.drawGoals();
+            }
+            
+            drawGoals() {
+                this.ctx.strokeStyle = '#FFFFFF';
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                this.ctx.lineWidth = 3;
+                
+                const goalLeft = this.width / 2 - this.goalWidth / 2;
+                const goalRight = this.width / 2 + this.goalWidth / 2;
+                
+                // Top goal
+                this.ctx.fillRect(goalLeft, this.fieldPadding - this.goalDepth, 
+                                 this.goalWidth, this.goalDepth);
+                this.ctx.strokeRect(goalLeft, this.fieldPadding - this.goalDepth, 
+                                   this.goalWidth, this.goalDepth);
+                
+                // Bottom goal
+                this.ctx.fillRect(goalLeft, this.height - this.fieldPadding, 
+                                 this.goalWidth, this.goalDepth);
+                this.ctx.strokeRect(goalLeft, this.height - this.fieldPadding, 
+                                   this.goalWidth, this.goalDepth);
+                
+                // Goal posts
+                this.ctx.fillStyle = '#FFFFFF';
+                this.ctx.fillRect(goalLeft - 3, this.fieldPadding - 3, 6, 6);
+                this.ctx.fillRect(goalRight - 3, this.fieldPadding - 3, 6, 6);
+                this.ctx.fillRect(goalLeft - 3, this.height - this.fieldPadding - 3, 6, 6);
+                this.ctx.fillRect(goalRight - 3, this.height - this.fieldPadding - 3, 6, 6);
+            }
+            
+            drawPlayers() {
+                this.drawPlayer(this.player1, '1');
+                this.drawPlayer(this.player2, '2');
+            }
+            
+            drawPlayer(player, number) {
+                // Player shadow
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                this.ctx.beginPath();
+                this.ctx.arc(player.x + 2, player.y + 2, player.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                // Player body
+                this.ctx.fillStyle = player.color;
+                this.ctx.beginPath();
+                this.ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                // Player outline
+                this.ctx.strokeStyle = '#FFFFFF';
+                this.ctx.lineWidth = 2;
+                this.ctx.stroke();
+                
+                // Player number
+                this.ctx.fillStyle = '#FFFFFF';
+                this.ctx.font = 'bold 12px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(number, player.x, player.y + 4);
+            }
+            
+            drawBall() {
+                // Ball shadow
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                this.ctx.beginPath();
+                this.ctx.arc(this.ball.x + 1, this.ball.y + 1, this.ball.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                // Ball
+                this.ctx.fillStyle = this.ball.color;
+                this.ctx.beginPath();
+                this.ctx.arc(this.ball.x, this.ball.y, this.ball.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                // Ball pattern
+                this.ctx.strokeStyle = '#000000';
+                this.ctx.lineWidth = 1;
+                this.ctx.beginPath();
+                this.ctx.arc(this.ball.x, this.ball.y, this.ball.size * 0.7, 0, Math.PI * 2);
+                this.ctx.stroke();
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.ball.x - this.ball.size * 0.7, this.ball.y);
+                this.ctx.lineTo(this.ball.x + this.ball.size * 0.7, this.ball.y);
+                this.ctx.stroke();
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.ball.x, this.ball.y - this.ball.size * 0.7);
+                this.ctx.lineTo(this.ball.x, this.ball.y + this.ball.size * 0.7);
+                this.ctx.stroke();
+            }
+            
+            updateUI() {
+                document.getElementById('player1Score').textContent = this.player1Score;
+                document.getElementById('player2Score').textContent = this.player2Score;
+                
+                const currentTime = Date.now();
+                const elapsedTime = Math.floor((currentTime - this.startTime) / 1000);
+                const minutes = Math.floor(elapsedTime / 60);
+                const seconds = elapsedTime % 60;
+                document.getElementById('timeDisplay').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            
+            togglePause() {
+                if (this.gameState === 'playing') {
+                    this.gameState = 'paused';
+                    document.getElementById('pauseOverlay').classList.add('active');
+                    document.getElementById('pauseBtn').textContent = 'Resume';
+                } else {
+                    this.gameState = 'playing';
+                    document.getElementById('pauseOverlay').classList.remove('active');
+                    document.getElementById('pauseBtn').textContent = 'Pause';
+                }
+            }
+            
+            resetGame() {
+                this.player1Score = 0;
+                this.player2Score = 0;
+                this.startTime = Date.now();
+                
+                // Reset positions
+                this.player1.x = this.width / 2;
+                this.player1.y = this.height - 150;
+                
+                this.player2.x = this.width / 2;
+                this.player2.y = 150;
+                
+                this.ball.x = this.width / 2;
+                this.ball.y = this.height / 2 + 50;
+                this.ball.vx = 0;
+                this.ball.vy = 0;
+                
+                // Resume game if paused
+                if (this.gameState === 'paused') {
+                    this.togglePause();
+                }
+            }
+            
+            gameLoop(currentTime = 0) {
+                const deltaTime = (currentTime - this.lastTime) / 1000;
+                this.lastTime = currentTime;
+                
+                // Update game logic
+                this.update(deltaTime);
+                
+                // Render everything
+                this.render();
+                
+                // Continue loop
+                requestAnimationFrame((time) => this.gameLoop(time));
+            }
+        }
+        
+        // Initialize game when page loads
+        window.addEventListener('load', () => {
+            new FootballGame();
+        });
+    </script>
+</body>
+</html>
